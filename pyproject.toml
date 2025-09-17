@@ -6,11 +6,29 @@ authors = [
     {name = "hedefu",email = "hedefu999@163.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<4.0"
 dependencies = [
+    "colorama (==0.4.6)",
+    "langchain (==0.3.27)",
+    "langchain-core (==0.3.72)",
+    "langchain-community (==0.3.27)",
+    "pandas (==2.3.2)",
+    "pydantic (==2.11.7)",
+    "python-dotenv (==1.1.1)",
+    "chroma-hnswlib (==0.7.2)",
+    "chromadb (==1.1.0)",
+    "tiktoken (==0.7.0)",
+    "openpyxl (==3.1.5)",
+    "pymupdf (==1.24.7)",
 ]
 
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[[tool.poetry.source]]
+name = "aliyun"
+url = "https://mirrors.aliyun.com/pypi/simple/"
+priority = "primary"
+
