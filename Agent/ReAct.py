@@ -42,7 +42,7 @@ class ReActAgent:
             tools: List[BaseTool],
             work_dir: str,
             main_prompt_file: str,
-            max_thought_steps: Optional[int] = 10,
+            max_thought_steps: int = 10,
     ):
         self.llm = llm
         self.tools = tools
@@ -78,7 +78,8 @@ class ReActAgent:
                 # render_text_description格式化tool（BaseTool）信息：{tool.name} - {tool.description}
                 tools=render_text_description(self.tools),
                 tool_names=','.join([tool.name for tool in self.tools]),
-                # 提取BaseModel.model_json_schema()信息
+                # get_format_instructions() 得到的内容在Action中进行了演示
+                # 功能就是生成一个大模型提示词模板，而且是源码里写死的，英文版的
                 format_instructions=self.output_parser.get_format_instructions(),
             )
 
@@ -92,12 +93,8 @@ class ReActAgent:
                 return tool
         return None
 
-    def __step(self,
-               task,
-               short_term_memory,
-               chat_history,
-               verbose=False
-               ) -> Tuple[Action, str]:
+    def __step(self, task, short_term_memory, chat_history,
+                verbose=False) -> Tuple[Action, str]:
 
         """执行一步思考"""
 
@@ -116,7 +113,7 @@ class ReActAgent:
             response += s
         # 提取JSON代码块
         json_action = self.__extract_json_action(response)
-        # 带容错的解析
+        # 带容错的解析，大模型提供了灵活的格式纠正
         action = self.robust_parser.parse(
             json_action if json_action else response
         )
@@ -133,7 +130,7 @@ class ReActAgent:
         else:
             try:
                 # 执行工具
-                observation = tool.run(action.args)
+                observation = tool.run("" if action.args is None else action.args) 
             except ValidationError as e:
                 # 工具的入参异常
                 observation = (
@@ -145,12 +142,8 @@ class ReActAgent:
 
         return observation
 
-    def run(
-            self,
-            task: str,
-            chat_history: ChatMessageHistory,
-            verbose=False
-    ) -> str:
+    def run(self, task: str, chat_history: ChatMessageHistory,
+            verbose=False ) -> str:
         """
         运行智能体
         :param task: 用户任务
@@ -158,7 +151,7 @@ class ReActAgent:
         :param verbose: 是否显示详细信息
         """
         # 初始化短时记忆: 记录推理过程
-        short_term_memory = []
+        short_term_memory:list[str] = []
 
         # 思考步数
         thought_step_count = 0
