@@ -1,9 +1,12 @@
+import sys,os
+sys.path.append(os.getcwd())
+
 from typing import List
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import Chroma
-from langchain.document_loaders import PyMuPDFLoader
-from langchain.document_loaders.word_document import UnstructuredWordDocumentLoader
+from langchain_community.vectorstores import Chroma
+from langchain_community.document_loaders import PyMuPDFLoader
+from langchain_community.document_loaders import UnstructuredWordDocumentLoader
 from langchain.chains import RetrievalQA
 
 from Models.Factory import ChatModelFactory, EmbeddingModelFactory
@@ -55,12 +58,14 @@ def ask_docment(
         chain_type="stuff",  # prompt的组织方式，后面细讲
         retriever=db.as_retriever()  # 检索器
     )
-    response = qa_chain.run(query + "(请用中文回答)")
+    response = qa_chain.invoke(query + "(请用中文回答)")
     return response
 
 
 if __name__ == "__main__":
-    filename = "../data/2023年10月份销售计划.docx"
-    query = "销售额达标的标准是多少？"
+    filename = "data/供应商资格要求.pdf"
+    query = "供应商至少要有几年行业经验？"
+    query = "供应商经我方销售的产品月总价不得低于多少？"
     response = ask_docment(filename, query)
-    print(response)
+    print(response['query'])
+    print(response['result'])

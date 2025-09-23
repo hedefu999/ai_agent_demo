@@ -22,7 +22,7 @@ class ReActAgent:
     def __format_thought_observation(thought: str, action: Action, observation: str) -> str:
         # 将全部JSON代码块替换为空
         ret = re.sub(r'```json(.*?)```', '', thought, flags=re.DOTALL)
-        ret += "\n" + str(action) + "\n返回结果:\n" + observation
+        ret += "\n" + str(action) + "\n返回结果:\n" + str(observation)
         return ret
 
     @staticmethod

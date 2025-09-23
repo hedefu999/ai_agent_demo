@@ -10,8 +10,8 @@ CODE_COLOR = Fore.WHITE
 
 def color_print(text, color=None, end="\n"):
     if color is not None:
-        content = color + text + Style.RESET_ALL + end
+        content = color + str(text) + Style.RESET_ALL + end
     else:
-        content = text + end
+        content = str(text) + end
     sys.stdout.write(content)
     sys.stdout.flush()

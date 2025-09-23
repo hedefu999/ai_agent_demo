@@ -1,3 +1,10 @@
+import sys,os
+print(f'system current dir: {os.getcwd()}')
+sys.path.append(os.getcwd())
+# 不知道为啥main.py跑起来StructuredTools中导入的Tool会找不到，非要在FileQATool前加个点才能从父目录下自动找到
+# 但这样直接调试PythonTool等单元测试会找不到，这里直接将Tools这个path加进来就可以了
+sys.path.append(os.getcwd()+'/Tools')
+
 # 加载环境变量
 from dotenv import load_dotenv, find_dotenv
 _ = load_dotenv(find_dotenv())
@@ -26,7 +33,7 @@ def launch_agent(agent: ReActAgent):
 def main():
 
     # 语言模型
-    llm = ChatModelFactory.get_model("gpt-4o")
+    llm = ChatModelFactory.get_default_model()
 
     # 自定义工具集
     tools = [

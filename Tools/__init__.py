@@ -1,4 +1,4 @@
-from .Tools import (
+from .StructuredTools import (
     document_qa_tool,
     document_generation_tool,
     email_tool,

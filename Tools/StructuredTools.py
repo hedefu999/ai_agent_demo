@@ -1,13 +1,17 @@
+import sys,os
+print(f'structured_tool: system current dir: {os.getcwd()}')
+sys.path.append(os.getcwd())
+
 import warnings
 warnings.filterwarnings("ignore")
 
 from langchain.tools import StructuredTool
-from .FileQATool import ask_docment
-from .WriterTool import write
-from .EmailTool import send_email
-from .ExcelTool import get_first_n_rows
-from .FileTool import list_files_in_directory
-from .FinishTool import finish
+from FileQATool import ask_docment
+from WriterTool import write
+from EmailTool import send_email
+from ExcelTool import get_first_n_rows
+from FileTool import list_files_in_directory
+from FinishTool import finish
 
 document_qa_tool = StructuredTool.from_function(
     func=ask_docment,
