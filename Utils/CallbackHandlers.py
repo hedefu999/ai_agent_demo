@@ -11,7 +11,7 @@ class ColoredPrintHandler(BaseCallbackHandler):
     def __init__(self, color: str):
         BaseCallbackHandler.__init__(self)
         self._color = color
-
+    # 大模型持续输出中
     def on_llm_new_token(
             self,
             token: str,
@@ -23,7 +23,7 @@ class ColoredPrintHandler(BaseCallbackHandler):
     ) -> Any:
         color_print(token, self._color, end="")
         return token
-
+    # 结束的时候就打印个空行
     def on_llm_end(self, response: LLMResult, **kwargs: Any) -> Any:
         color_print("\n", self._color, end="")
         return response

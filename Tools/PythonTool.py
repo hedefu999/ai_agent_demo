@@ -82,7 +82,7 @@ class ExcelAnalyser:
             ] if self.verbose else []
         }):
             response += c
-            if c: print(c, end="")
+            # if c: print(c, end="") 上面指定的callback就带有了流式打印功能，以后别再手写了
         code = code_parser.parse(response)
 
         if code:

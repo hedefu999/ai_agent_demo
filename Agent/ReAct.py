@@ -18,7 +18,7 @@ from Utils.CallbackHandlers import *
 class ReActAgent:
     """AutoGPT：基于Langchain实现"""
 
-    @staticmethod
+    @staticmethod # 入参分别是：大模型思考计划内容，计划内容提取出的工具Tool信息，工具执行结果
     def __format_thought_observation(thought: str, action: Action, observation: str) -> str:
         # 将全部JSON代码块替换为空
         ret = re.sub(r'```json(.*?)```', '', thought, flags=re.DOTALL)
@@ -70,21 +70,34 @@ class ReActAgent:
         with open(self.main_prompt_file, 'r', encoding='utf-8') as f:
             self.prompt = ChatPromptTemplate.from_messages(
                 [
-                    MessagesPlaceholder(variable_name="chat_history"),
+                    MessagesPlaceholder(variable_name="chat_history"), # 指定链执行时传入的dict中的消息历史的字段为chat_history
                     HumanMessagePromptTemplate.from_template(f.read()),
                 ]
             ).partial( # partial方法提供prompt模板中的占位符参数的值
                 work_dir=self.work_dir,
-                # render_text_description格式化tool（BaseTool）信息：{tool.name} - {tool.description}
+                # render_text_description格式化tool（BaseTool）信息：{tool.name} - {tool.description} 
+                # # 这个工具居然是langchain提供的
                 tools=render_text_description(self.tools),
-                tool_names=','.join([tool.name for tool in self.tools]),
-                # get_format_instructions() 得到的内容在Action中进行了演示
-                # 功能就是生成一个大模型提示词模板，而且是源码里写死的，英文版的
+                tool_names=','.join([tool.name for tool in self.tools]), #方法名列表,返回内容 'AskDocument,GenerateDocument,SendEmail,InspectExcel,ListDirectory,FINISH,AnalyseExcel'
+                # get_format_instructions() 得到的内容在Action中进行了演示 # 这个区域是填充格式化的工具调用信息的，相关prompt是langchain生成的，也就是说大模型看到的prompt是中英文混输的
+                # 功能是生成一个prompt，用于格式化大模型的输出，格式示例通过Action类和pydantic等生成
                 format_instructions=self.output_parser.get_format_instructions(),
             )
+            # 这个format_instructions长这样
+            """
+            AskDocument(filename: str, query: str) -> str - 根据一个Word或PDF文档的内容，回答一个问题。考虑上下文信息，确保问题对相关概念的定义表述完整。
+            GenerateDocument(query: str, verbose=False) - 根据需求描述生成一篇正式文档
+            SendEmail(to: str, subject: str, body: str, cc: str = None, bcc: str = None) -> str - 给指定的邮箱发送邮件。确保邮箱地址是xxx@xxx.xxx的格式。多个邮箱地址以';'分割。
+            InspectExcel(filename: str, n: int = 3) -> str - 探查表格文件的内容和结构，展示它的列名和前n行，n默认为3
+            ListDirectory(path: str) -> str - 探查文件夹的内容和结构，展示它的文件名和文件夹名
+            FINISH(the_final_answer: str) -> str - 结束任务，将最终答案返回
+            AnalyseExcel(query, filename) - 通过程序脚本分析一个结构化文件（例如excel文件）的内容。    输人中必须包含文件的完整路径和具体分析方式和分析依据，阈值常量等。
+            """
 
     def __init_chains(self):
-        # 主流程的chain
+        # 主流程的chain, 这个主prompt main.txt 中的占位符填充操作分了很多步：
+        # 1. 通过ChatPromptTemplate.partial设置了work_dir/tools/tool_names/format_instructions
+        # 然后又 2.在invoke/stream中设置了input/agent_scratchpad 3.注意chat_history并不是prompt中的占位符！只是内部约定的消息历史名称
         self.main_chain = (self.prompt | self.llm | StrOutputParser())
 
     def __find_tool(self, tool_name: str) -> Optional[BaseTool]:
@@ -92,7 +105,7 @@ class ReActAgent:
             if tool.name == tool_name:
                 return tool
         return None
-
+    # 一个步骤干的事就是 prompt塞了一堆规则、工具信息、任务、历史对话，要求大模型给出思考过程和计划，并在最后附上markdown格式的json结构化信息，里面是将要调用的工具
     def __step(self, task, short_term_memory, chat_history,
                 verbose=False) -> Tuple[Action, str]:
 
@@ -101,20 +114,22 @@ class ReActAgent:
         inputs = {
             "input": task,
             "agent_scratchpad": "\n".join(short_term_memory),
-            "chat_history": chat_history.messages,
+            "chat_history": chat_history.messages, # 这个是LangChain的list[BaseMessage]
         }
 
         config = {
-            "callbacks": [self.verbose_handler]
-            if verbose else []
+            "callbacks": [self.verbose_handler] #实现了BaseCallbackHandler
+            if verbose else [] # 这行乍看是config有两个字段，但这行影响的只是callbacks的值
         }
         response = ""
+        # 会走进BaseCallbackHandler中的 on_llm_new_token 方法，进行模型思考结果打印
+        # #planning阶段根据main.txt给出思考过程
         for s in self.main_chain.stream(inputs, config=config):
             response += s
         # 提取JSON代码块
         json_action = self.__extract_json_action(response)
-        # 带容错的解析，大模型提供了灵活的格式纠正
-        action = self.robust_parser.parse(
+        # 带容错的解析，大模型提供了灵活的格式纠正, 防止因提示词/大模型等问题导致的json报文格式、字段名称问题，最终得到一个Action对象
+        action = self.robust_parser.parse(# 也就是说这是一个比json.format更为智能的json反序列化工具
             json_action if json_action else response
         )
         return action, response
@@ -129,7 +144,7 @@ class ReActAgent:
             )
         else:
             try:
-                # 执行工具
+                # 执行工具，这个tool是langchain的StructuredTool
                 observation = tool.run("" if action.args is None else action.args) 
             except ValidationError as e:
                 # 工具的入参异常
@@ -150,7 +165,7 @@ class ReActAgent:
         :param chat_history: 对话上下文（长时记忆）
         :param verbose: 是否显示详细信息
         """
-        # 初始化短时记忆: 记录推理过程
+        # 初始化短时记忆: 记录推理过程. 短时记忆使用list[str]记录每个步骤的中间过程，长时记忆才用到了langchain的API
         short_term_memory:list[str] = []
 
         # 思考步数
@@ -176,7 +191,7 @@ class ReActAgent:
                 reply = self.__exec_action(action)
                 break
 
-            # 执行动作
+            # 执行动作,Tool的执行跟大模型没关系，仍然依赖python。通过调接口执行工具也可以
             observation = self.__exec_action(action)
 
             if verbose:
@@ -184,18 +199,19 @@ class ReActAgent:
 
             # 更新短时记忆
             short_term_memory.append(
-                self.__format_thought_observation(
+                self.__format_thought_observation( # 拼接一轮会话中大模型输出和tool执行结果
                     response, action, observation
                 )
             )
 
             thought_step_count += 1
-
+        # 这里走出了while
         if thought_step_count >= self.max_thought_steps:
             # 如果思考步数达到上限，返回错误信息
             reply = "抱歉，我没能完成您的任务。"
 
-        # 更新长时记忆
+        # 更新长时记忆，长时记忆记录的是明确的用户问题 + 大模型最终答复，即答案。 短时记忆才有工具、工具执行结果等中间步骤信息
+        # 最终保存的长时记忆内容：task '9月份的销售额是多少'，reply '2851099元'
         chat_history.add_user_message(task)
         chat_history.add_ai_message(reply)
         return reply
