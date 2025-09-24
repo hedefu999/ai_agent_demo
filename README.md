@@ -1,27 +1,8 @@
-## 第一步：设置 .env
-把项目中的 .env 里面的 OPENAI_API_KEY 配置为自己的
 
-```
-OPENAI_API_KEY=sk-xxxx
-```
+来自知乎AI全栈工程师课程代码
 
-## 第二步设置：
-
-控制某些软件包在编译和运行时是否使用本地（原生）库
-
-执行下面命令：
-```
-export HNSWLIB_NO_NATIVE=1
-```
-
-## 第三步：安装包
-
-执行下面命令：
-```
-pip install -r requirements.txt
-```
-
-## 第四步：运行
+openai替换为智谱GLM大模型
+各功能调试通过
 
 #### 运行 main.py 文件
 
